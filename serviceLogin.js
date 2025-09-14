@@ -191,9 +191,9 @@ app.post("/register", async (req, res) => {
 
 // ✅ 3. Login API
 app.post("/login", (req, res) => {
-  const identifier = req.body.email || req.body.username;
+  const identifier = req.body.email || req.body.serviceRef;
   const { password } = req.body;
-  const sql = "SELECT * FROM service WHERE email = ? OR username = ?";
+  const sql = "SELECT * FROM service WHERE email = ? OR serviceRef = ?";
 
   // Log 1: ตรวจสอบข้อมูลที่ได้รับจาก Frontend
   console.log("------------------- Login Attempt -------------------");
