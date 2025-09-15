@@ -2,7 +2,7 @@ const express = require("express");
 const multer = require("multer");
 const mysql = require("mysql2/promise");
 const path = require("path");
-const dotenv = require("dotenv")
+const dotenv = require("dotenv");
 const core = require("cors");
 
 // --- 1. ตั้งค่า Express App ---
@@ -12,8 +12,8 @@ const port = 3303;
 
 // ทำให้โฟลเดอร์ 'uploads' เป็นแบบ public เพื่อให้เข้าถึงไฟล์รูปได้ผ่าน URL
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-app.use(express.json({limit: '20mb'}));
-app.use(express.urlencoded({ extended: true,limit: '20mb' }));
+app.use(express.json({ limit: "20mb" }));
+app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 app.use(core());
 
 // --- 2. ตั้งค่าการเชื่อมต่อฐานข้อมูล (Database Connection) ---
@@ -41,9 +41,9 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ 
+const upload = multer({
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 } 
+  limits: { fileSize: 10 * 1024 * 1024 },
 });
 
 // --- 4. สร้าง Route สำหรับอัปโหลด (Endpoint) ---

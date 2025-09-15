@@ -39,18 +39,34 @@ app.get("/get-customers", (req, res) => {
       res.status(500).json({ error: "Internal Server Error" });
     });
 });
-
 app.get("/get-job", (req, res) => {
   pool
     .query(
-      `SELECT j.jobRef,p.product_name,j.serialNumber,p.sku,c.username,j.jobStatus,j.createAt,j.updateAt,
-      j.expected_completion_date,j.unit,j.serviceRef
-FROM job AS j 
-JOIN customer AS c ON j.customerRef = c.customerRef
-JOIN product AS p ON j.productRef = p.productRef`
+      `
+      SELECT
+        j.jobRef, j.serialNumber, j.createAt,
+        latest_ja.updateAt AS latestUpdateAt, j.jobStatus,
+        latest_ja.updateBy AS latestUpdateBy,
+        j.expected_completion_date, j.customer_contact, j.serviceRef,
+        c.username, p.product_name, p.sku
+      FROM job AS j
+      JOIN customer AS c ON c.customerRef = j.customerRef
+      JOIN product AS p ON p.productRef = j.productRef
+      JOIN (
+        SELECT jobRef, updateAt, jobStatus, updateBy
+        FROM (
+          SELECT
+            jobRef, updateAt, jobStatus, updateBy,
+            ROW_NUMBER() OVER(PARTITION BY jobRef ORDER BY updateAt DESC) AS rn
+          FROM job_active
+        ) AS subquery
+        WHERE subquery.rn = 1
+      ) AS latest_ja ON j.jobRef = latest_ja.jobRef
+      ORDER BY latest_ja.updateAt DESC;
+      `
     )
     .then(([rows, fields]) => {
-      console.log("Query result:", rows);
+      console.log("Filtered result:", rows);
       res.json(rows);
     })
     .catch((err) => {
@@ -58,6 +74,27 @@ JOIN product AS p ON j.productRef = p.productRef`
       res.status(500).json({ error: "Internal Server Error" });
     });
 });
+// app.get("/get-job", (req, res) => {
+//   pool
+//     .query(
+//       `SELECT ja.jobRef, j.serialNumber, j.createAt, ja.updateAt, ja.jobStatus,
+//              j.expected_completion_date, j.customer_contact, ja.updateBy, j.serviceRef,
+//              c.*, p.*
+//       FROM job AS j
+//       JOIN customer AS c ON c.customerRef = j.customerRef
+//       JOIN product AS p ON p.productRef = j.productRef
+//       JOIN job_active AS ja ON ja.jobRef = j.jobRef
+//       ORDER BY ja.updateAt;`
+//     )
+//     .then(([rows, fields]) => {
+//       console.log("Query result:", rows);
+//       res.json(rows);
+//     })
+//     .catch((err) => {
+//       console.error("Error executing query:", err);
+//       res.status(500).json({ error: "Internal Server Error" });
+//     });
+// });
 
 app.get("/get-job/:jobStatus", (req, res) => {
   const sqlQuery = `SELECT j.jobRef,c.username,p.category,j.createAt,j.updateAt,j.jobStatus ,p.product_name,j.serialNumber,p.sku
@@ -896,7 +933,7 @@ app.get("/get-detail/:jobRef", async (req, res) => {
     const [jobRows] = await pool.query(
       `
       SELECT j.jobRef, j.serialNumber, j.createAt, ja.updateAt, ja.jobStatus,
-             j.expected_completion_date, j.customer_contact,
+             j.expected_completion_date, j.customer_contact, ja.updateBy, j.serviceRef,
              c.*, p.*
       FROM job AS j
       JOIN customer AS c ON c.customerRef = j.customerRef
@@ -936,10 +973,10 @@ app.get("/get-detail/:jobRef", async (req, res) => {
     }
 
     // 🧩 รวมผลลัพธ์ทั้งหมด
-    const result = {
-      ...jobRows[0],
+    const result = jobRows.map((row) => ({
+      ...row,
       images,
-    };
+    }));
 
     console.log("🚀 Response result:", result);
     res.json(result);
@@ -962,7 +999,7 @@ app.put("/update-status/:jobRef", async (req, res) => {
 
   // ✅ ดึงข้อมูล user จาก JWT (ที่ frontend เก็บใน localStorage และส่งมาใน headers: Authorization: Bearer <token>)
   const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1]; // แยก "Bearer <token>" และใช้ <token> 
+  const token = authHeader && authHeader.split(" ")[1]; // แยก "Bearer <token>" และใช้ <token>
   console.log("Headers token:", authHeader);
   console.log("token:", token);
 

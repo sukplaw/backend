@@ -1,6 +1,6 @@
 // index.js
 const express = require("express");
-const mysql = require('mysql2/promise');
+const mysql = require("mysql2/promise");
 const cors = require("cors");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
@@ -18,15 +18,15 @@ const pool = mysql.createPool({
   database: process.env.DB_DATABASE,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
 });
 
 // ใช้ `async/await` เพื่อเชื่อมต่อและ query ฐานข้อมูล
 async function testConnection() {
   try {
     // ไม่ต้องใช้ db.connect() เนื่องจากการใช้ connection pool จะเชื่อมต่อให้เอง
-    const [rows, fields] = await pool.query('SELECT 1 + 1 AS solution');
-    console.log('✅ Connection successful, result:', rows[0].solution);  // ควรได้ 2
+    const [rows, fields] = await pool.query("SELECT 1 + 1 AS solution");
+    console.log("✅ Connection successful, result:", rows[0].solution); // ควรได้ 2
   } catch (err) {
     console.error("❌ Failed to connect:", err);
   }
@@ -155,11 +155,12 @@ app.post("/register", async (req, res) => {
 
   try {
     // ขั้นที่ 2: ตรวจสอบข้อมูลซ้ำในฐานข้อมูล
-    const checkSql = "SELECT serviceRef, email FROM service WHERE serviceRef = ? OR email = ?";
-    
+    const checkSql =
+      "SELECT serviceRef, email FROM service WHERE serviceRef = ? OR email = ?";
+
     // เพิ่มการ log เพื่อตรวจสอบ SQL query ที่จะรัน
     console.log("Running query:", checkSql);
-    
+
     const [checkResult] = await pool.query(checkSql, [serviceRef, email]);
 
     // เพิ่มการ log เพื่อตรวจสอบผลลัพธ์จาก query
@@ -180,26 +181,30 @@ app.post("/register", async (req, res) => {
 
     // ขั้นที่ 3: เข้ารหัสรหัสผ่านและเพิ่มข้อมูลลงฐานข้อมูล
     const hashedPassword = await bcrypt.hash(password, 10);
-    const insertSql = "INSERT INTO service (serviceRef, username , email, password, role) VALUES (?, ?, ?, ?, ?)";
+    const insertSql =
+      "INSERT INTO service (serviceRef, username , email, password, role) VALUES (?, ?, ?, ?, ?)";
 
     // เพิ่มการ log เพื่อตรวจสอบ SQL query ที่จะรันสำหรับการ insert ข้อมูล
     console.log("Running insert query:", insertSql);
-    
-    const [insertResult] = await pool.query(insertSql, [serviceRef, username, email, hashedPassword, role]);
+
+    const [insertResult] = await pool.query(insertSql, [
+      serviceRef,
+      username,
+      email,
+      hashedPassword,
+      role,
+    ]);
 
     // เพิ่มการ log เพื่อตรวจสอบผลลัพธ์จากการ insert ข้อมูล
     console.log("Insert result:", insertResult);
 
     res.status(201).json({ message: "ลงทะเบียนสำเร็จ" });
-
   } catch (error) {
     // จัดการข้อผิดพลาดที่อาจเกิดขึ้นจากการเข้ารหัสหรือ query
     console.error("General error:", error);
     res.status(500).json({ error: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์" });
   }
 });
-
-
 
 // ✅ 3. Login API
 // app.post("/login", (req, res) => {
@@ -265,8 +270,6 @@ app.post("/register", async (req, res) => {
 //   });
 // });
 
-
-
 app.post("/login", async (req, res) => {
   const identifier = req.body.email || req.body.serviceRef;
   const { password } = req.body;
@@ -311,14 +314,14 @@ app.post("/login", async (req, res) => {
 
     // สร้าง JWT token
     const token = jwt.sign(
-      { 
-        id: user.id, 
-        role: user.role, 
+      {
+        id: user.id,
+        role: user.role,
         serviceRef: user.serviceRef,
         username: user.username,
         firstName: user.service_firstname,
         lastName: user.service_lastname,
-        email: user.email 
+        email: user.email,
       },
       process.env.JWT_SECRET || "secret123", // ใช้ JWT_SECRET จาก .env หรือ fallback เป็น 'secret123'
       { expiresIn: "1h" }
@@ -335,7 +338,7 @@ app.post("/login", async (req, res) => {
 
     // ส่ง response กลับไปที่ frontend พร้อมกับ token และข้อมูล user
     res.json({
-      token,  // ส่ง token ที่สร้างให้ frontend
+      token, // ส่ง token ที่สร้างให้ frontend
       user: {
         id: user.id,
         username: user.username,
@@ -343,24 +346,22 @@ app.post("/login", async (req, res) => {
         lastName: user.service_lastname,
         email: user.email,
         serviceRef: user.serviceRef,
-        role: user.role
-      }
+        role: user.role,
+      },
     });
-
   } catch (err) {
     console.error("Error during login process:", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-
 // Middleware สำหรับตรวจสอบ token
 const authenticateToken = (req, res, next) => {
   // ดึง token จาก Authorization header
   const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];  // จะแยก "Bearer <token>" และใช้แค่ <token> 
-  console.log("Headers token:", authHeader);  // log header เพื่อดีบัก
-  console.log("token:", token);  // log token เพื่อดีบัก
+  const token = authHeader && authHeader.split(" ")[1]; // จะแยก "Bearer <token>" และใช้แค่ <token>
+  console.log("Headers token:", authHeader); // log header เพื่อดีบัก
+  console.log("token:", token); // log token เพื่อดีบัก
 
   // ถ้าไม่มี token ให้ส่ง status 401 Unauthorized
   if (!token) return res.status(401).json({ error: "Unauthorized" });
@@ -368,11 +369,11 @@ const authenticateToken = (req, res, next) => {
   let decoded;
   try {
     // ตรวจสอบความถูกต้องของ token ด้วย `jwt.verify`
-    decoded = jwt.verify(token, process.env.JWT_SECRET || "secret123");  // 'secret123' คือ secret key ที่ใช้ sign token
+    decoded = jwt.verify(token, process.env.JWT_SECRET || "secret123"); // 'secret123' คือ secret key ที่ใช้ sign token
     console.log("Decoded JWT:", decoded); // log ข้อมูลที่ decoded ออกมา (ข้อมูลจาก payload ของ token)
 
-    req.user = decoded;  // เก็บข้อมูลที่ decoded ลงใน req.user เพื่อใช้ใน routes ถัดไป
-    next();  // ถ้า token ถูกต้องให้ดำเนินการต่อ
+    req.user = decoded; // เก็บข้อมูลที่ decoded ลงใน req.user เพื่อใช้ใน routes ถัดไป
+    next(); // ถ้า token ถูกต้องให้ดำเนินการต่อ
   } catch (err) {
     // ถ้าเกิดข้อผิดพลาดในการ verify จะส่ง status 403 Forbidden
     console.error("JWT verification failed:", err);
@@ -388,12 +389,13 @@ app.get("/profile", authenticateToken, (req, res) => {
 
   res.json({
     message: "Profile data retrieved successfully",
-    user: req.user  // ข้อมูลที่ได้จาก token (เช่น id, role, serviceRef ฯลฯ)
+    user: req.user, // ข้อมูลที่ได้จาก token (เช่น id, role, serviceRef ฯลฯ)
   });
 });
 
 app.put("/profile", authenticateToken, (req, res) => {
-  const { firstName, lastName, email, phone, lineId, role, birthDate } = req.body;
+  const { firstName, lastName, email, phone, lineId, role, birthDate } =
+    req.body;
   const serviceRef = req.user.serviceRef; // ใช้ serviceRef จาก token ที่ยืนยันตัวตน
 
   const updateQuery = `
@@ -401,31 +403,31 @@ app.put("/profile", authenticateToken, (req, res) => {
     SET service_firstname = ?, service_lastname = ?, email = ?, phone = ?, line_id = ?, role = ?, birth_date = ?
     WHERE serviceRef = ?;
   `;
-  
-  pool.query(updateQuery, [
-    firstName,
-    lastName,
-    email,
-    phone,
-    lineId,
-    role,
-    birthDate,
-    serviceRef
-  ])
-  .then(([result]) => {
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "User not found or no changes made." });
-    }
-    res.json({ message: "Profile updated successfully" });
-  })
-  .catch((err) => {
-    console.error("Error updating profile:", err);
-    res.status(500).json({ error: "Failed to update profile" });
-  });
+
+  pool
+    .query(updateQuery, [
+      firstName,
+      lastName,
+      email,
+      phone,
+      lineId,
+      role,
+      birthDate,
+      serviceRef,
+    ])
+    .then(([result]) => {
+      if (result.affectedRows === 0) {
+        return res
+          .status(404)
+          .json({ error: "User not found or no changes made." });
+      }
+      res.json({ message: "Profile updated successfully" });
+    })
+    .catch((err) => {
+      console.error("Error updating profile:", err);
+      res.status(500).json({ error: "Failed to update profile" });
+    });
 });
-
-
-
 
 // app.get("/profile", authenticateToken, async (req, res) => {
 //   console.log("--- Request Reached Profile Endpoint ---");
