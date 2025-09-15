@@ -14,7 +14,7 @@
     "jsonwebtoken": "^9.0.2",
     "login-express": "^2.0.27",
     "multer": "^2.0.2",
-    "mysql2": "^3.14.4"
+    "mysql2": "^3.14.5"
   },
   "name": "service_system-backend",
   "version": "1.0.0",

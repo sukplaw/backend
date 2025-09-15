@@ -962,14 +962,18 @@ app.put("/update-status/:jobRef", async (req, res) => {
 
   // ✅ ดึงข้อมูล user จาก JWT (ที่ frontend เก็บใน localStorage และส่งมาใน headers: Authorization: Bearer <token>)
   const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
+  const token = authHeader && authHeader.split(" ")[1]; // แยก "Bearer <token>" และใช้ <token> 
   console.log("Headers token:", authHeader);
   console.log("token:", token);
-  if (!token) return res.status(401).json({ error: "Unauthorized" });
+
+  if (!token) {
+    return res.status(401).json({ error: "Unauthorized: Token is missing" });
+  }
 
   let decoded;
   try {
-    decoded = jwt.verify(token, "secret123");
+    // ตรวจสอบความถูกต้องของ token ด้วย `jwt.verify`
+    decoded = jwt.verify(token, process.env.JWT_SECRET || "secret123");
     console.log("Decoded JWT:", decoded); // ✅ ต้องมีค่าถูกต้องที่นี่
   } catch (err) {
     console.error("JWT verification failed:", err); // 🔥 สำคัญมาก
