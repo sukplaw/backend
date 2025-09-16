@@ -405,52 +405,58 @@ const authenticateToken = (req, res, next) => {
 //     });
 // });
 
-app.get("/profile", authenticateToken, (req, res) => {
-  // ใช้ข้อมูลใน req.user ที่ได้จาก decoded token
-  if (!req.user) {
-    return res.status(400).json({ error: "User data not available" });
-  }
+app.get("/profile", authenticateToken, async (req, res) => {
+  try {
+    if (!req.user || !req.user.serviceRef) {
+      return res.status(400).json({ error: "User data not available or serviceRef missing" });
+    }
 
-  res.json({
-    message: "Profile data retrieved successfully",
-    user: req.user, // ข้อมูลที่ได้จาก token (เช่น id, role, serviceRef ฯลฯ)
-  });
+    const serviceRef = req.user.serviceRef;
+
+    // Query จากตาราง service
+    const [rows] = await pool.execute(
+      "SELECT * FROM service WHERE serviceRef = ?",
+      [serviceRef]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Service data not found" });
+    }
+
+    res.json({
+      message: "Service profile retrieved successfully",
+      user: rows[0], // ส่งข้อมูล service กลับไป
+    });
+  } catch (err) {
+    console.error("Error fetching profile:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
-app.put("/profile", authenticateToken, (req, res) => {
-  const { firstName, lastName, email, phone, lineId, role, birthDate } =
-    req.body;
-  const serviceRef = req.user.serviceRef; // ใช้ serviceRef จาก token ที่ยืนยันตัวตน
+app.put("/profile", authenticateToken, async (req, res) => {
+  const { serviceID, firstName, lastName, birthDate, email, phone, lineId, role, username, age } = req.body;
 
-  const updateQuery = `
-    UPDATE service
-    SET service_firstname = ?, service_lastname = ?, email = ?, phone = ?, line_id = ?, role = ?, birth_date = ?
-    WHERE serviceRef = ?;
-  `;
+  try {
+    const [result] = await pool.execute(
+      `UPDATE service SET 
+        service_firstName = ?, 
+        service_lastName = ?, 
+        birth_date = ?, 
+        email = ?, 
+        phone = ?, 
+        line_id = ?, 
+        role = ?, 
+        username = ?, 
+        service_old = ?
+      WHERE serviceRef = ?`,
+      [firstName, lastName, birthDate, email, phone, lineId, role, username, age, serviceID]
+    );
 
-  pool
-    .query(updateQuery, [
-      firstName,
-      lastName,
-      email,
-      phone,
-      lineId,
-      role,
-      birthDate,
-      serviceRef,
-    ])
-    .then(([result]) => {
-      if (result.affectedRows === 0) {
-        return res
-          .status(404)
-          .json({ error: "User not found or no changes made." });
-      }
-      res.json({ message: "Profile updated successfully" });
-    })
-    .catch((err) => {
-      console.error("Error updating profile:", err);
-      res.status(500).json({ error: "Failed to update profile" });
-    });
+    res.json({ message: "Profile updated successfully" });
+  } catch (err) {
+    console.error("Update error:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
 });
 
 // app.get("/profile", authenticateToken, async (req, res) => {
