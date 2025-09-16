@@ -97,11 +97,26 @@ app.get("/get-job", (req, res) => {
 // });
 
 app.get("/get-job/:jobStatus", (req, res) => {
-  const sqlQuery = `SELECT j.jobRef,c.username,p.category,j.createAt,j.updateAt,j.jobStatus ,p.product_name,j.serialNumber,p.sku
-FROM job AS j 
-JOIN product AS p ON p.productRef = j.productRef
-JOIN customer AS c ON c.customerRef = j.customerRef
-WHERE j.jobStatus = ?`;
+  const sqlQuery = `SELECT
+        j.jobRef, j.serialNumber, j.createAt,
+        latest_ja.updateAt AS latestUpdateAt, j.jobStatus,
+        latest_ja.updateBy AS latestUpdateBy,
+        j.expected_completion_date, j.customer_contact, j.serviceRef,
+        c.username, p.product_name, p.sku
+      FROM job AS j
+      JOIN customer AS c ON c.customerRef = j.customerRef
+      JOIN product AS p ON p.productRef = j.productRef
+      JOIN (
+        SELECT jobRef, updateAt, jobStatus, updateBy
+        FROM (
+          SELECT
+            jobRef, updateAt, jobStatus, updateBy,
+            ROW_NUMBER() OVER(PARTITION BY jobRef ORDER BY updateAt DESC) AS rn
+          FROM job_active
+        ) AS subquery
+        WHERE subquery.rn = 1
+      ) AS latest_ja ON j.jobRef = latest_ja.jobRef
+      WHERE j.jobStatus = ? ORDER BY latest_ja.updateAt DESC `;
   const jobStatus = req.params.jobStatus;
   pool
     .query(sqlQuery, [jobStatus])
@@ -141,7 +156,7 @@ JOIN product AS p ON j.productRef = p.productRef;`
 app.get("/get-dashboard", (req, res) => {
   pool
     .query(
-      `SELECT DISTINCT ja.jobRef,c.username,ja.unit,p.category,j.createAt,ja.updateAt,ja.jobStatus,p.product_name FROM job_active AS ja
+      `SELECT DISTINCT ja.jobRef,c.username,ja.unit,p.category,j.createAt,ja.updateAt,ja.jobStatus,p.sku FROM job_active AS ja
 JOIN job AS j ON j.jobRef = ja.jobRef
 JOIN product AS p ON p.productRef = j.productRef
 JOIN customer AS c ON c.customerRef = j.customerRef`
@@ -934,11 +949,13 @@ app.get("/get-detail/:jobRef", async (req, res) => {
       `
       SELECT j.jobRef, j.serialNumber, j.createAt, ja.updateAt, ja.jobStatus,
              j.expected_completion_date, j.customer_contact, ja.updateBy, j.serviceRef,
+             ji.imageUrl,ja.remark,
              c.*, p.*
       FROM job AS j
       JOIN customer AS c ON c.customerRef = j.customerRef
       JOIN product AS p ON p.productRef = j.productRef
       JOIN job_active AS ja ON ja.jobRef = j.jobRef
+      JOIN job_image AS ji ON ji.jobRef = j.jobRef
       WHERE j.jobRef = ?
       ORDER BY ja.updateAt;
     `,
@@ -1102,6 +1119,82 @@ app.put("/update-status/:jobRef", async (req, res) => {
     res
       .status(500)
       .json({ message: "Error updating job status and creating log." });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+app.put("/update-remark/:jobRef", async (req, res) => {
+  // Log ข้อมูลที่เข้ามาทั้งหมด
+  console.log("[PUT /update-remark] Endpoint ถูกเรียกใช้งาน");
+  console.log("Body:", req.body);
+  console.log("Params:", req.params);
+
+  const { jobRef } = req.params;
+  const { remark, images, jobStatus } = req.body;
+
+  // ตรวจสอบข้อมูลที่จำเป็น
+  if (!remark || !jobStatus) {
+    return res.status(400).json({
+      message: "Missing required fields: remark or jobStatus.",
+    });
+  }
+
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // 1. ค้นหาแถวที่ล่าสุดใน job_active เพื่ออัปเดต remark
+    const findLatestJobActiveQuery = `
+      SELECT job_active_id FROM job_active 
+      WHERE jobRef = ? 
+      ORDER BY updateAt DESC 
+      LIMIT 1;
+    `;
+    const [rows] = await connection.execute(findLatestJobActiveQuery, [jobRef]);
+
+    if (rows.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({
+        message: "Job not found in job_active.",
+      });
+    }
+
+    const latestJobActiveId = rows[0].job_active_id;
+    const updateRemarkQuery = `
+      UPDATE job_active SET remark = ? WHERE job_active_id = ?;
+    `;
+    const [updateResult] = await connection.execute(updateRemarkQuery, [
+      remark,
+      latestJobActiveId,
+    ]);
+
+    // 2. บันทึกภาพลงในตาราง job_image
+    if (images && images.length > 0) {
+      const insertJobImageQuery = `
+            INSERT INTO job_image (jobRef, imageUrl, status)
+            VALUES (?, ?, ?);
+        `;
+      for (const imageUrl of images) {
+        await connection.execute(insertJobImageQuery, [
+          jobRef,
+          imageUrl,
+          jobStatus,
+        ]);
+      }
+    }
+
+    await connection.commit();
+    res.status(200).json({
+      message: "Job remark and images added successfully.",
+    });
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error("Failed to update job remark or add images:", error);
+    res.status(500).json({
+      message: "Error updating job remark and adding images.",
+    });
   } finally {
     if (connection) connection.release();
   }

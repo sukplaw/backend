@@ -381,6 +381,30 @@ const authenticateToken = (req, res, next) => {
   }
 };
 
+// app.get("/profile", verifyToken, (req, res) => {
+//   console.log("[GET /profile] Endpoint ถูกเรียกใช้งาน");
+//   console.log("[GET /profile] ข้อมูลที่ได้รับจาก Token (req.user):", req.user);
+//   pool
+//     .query(`SELECT * FROM service WHERE serviceRef = ?`, [req.user.serviceRef])
+//     .then(([rows, fields]) => {
+//       // 💡 แก้ไขตรงนี้: ส่งเฉพาะอ็อบเจกต์แรกกลับไป
+//       const userProfile = rows[0];
+
+//       if (userProfile) {
+//         res.json({
+//           message: "Profile data retrieved successfully",
+//           user: userProfile,
+//         });
+//       } else {
+//         res.status(404).json({ error: "User not found" });
+//       }
+//     })
+//     .catch((err) => {
+//       console.error("Error executing query:", err);
+//       res.status(500).json({ error: "Internal Server Error" });
+//     });
+// });
+
 app.get("/profile", authenticateToken, (req, res) => {
   // ใช้ข้อมูลใน req.user ที่ได้จาก decoded token
   if (!req.user) {
