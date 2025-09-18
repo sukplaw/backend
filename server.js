@@ -1180,9 +1180,11 @@ app.put("/update-remark/:jobRef", async (req, res) => {
     if (images && images.length > 0) {
       const insertJobImageQuery = `
             INSERT INTO job_image (jobRef, imageUrl, job_image_status)
-            VALUES (?, ?, ?);
+            VALUES (?, ?, ?)
+            ON DUPLICATE KEY UPDATE job_image_status = VALUES(job_image_status);
         `;
       for (const imageUrl of images) {
+        console.log("Inserting image:", imageUrl);
         await connection.execute(insertJobImageQuery, [
           jobRef,
           imageUrl,
