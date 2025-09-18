@@ -222,12 +222,12 @@ app.post("/create-job", async (req, res) => {
 
     // ✅ เพิ่มรูปเข้า job_image
     if (claimImage && Array.isArray(claimImage)) {
-      const imageValues = claimImage.map((url) => [jobRef, url]);
+      const imageValues = claimImage.map((url) => [jobRef, url, jobStatus]);
 
       const insertImagesQuery = `
-        INSERT INTO job_image (jobRef, imageUrl)
-        VALUES ?
-      `;
+    INSERT INTO job_image (jobRef, imageUrl, job_image_status)
+    VALUES ?
+  `;
 
       await connection.query(insertImagesQuery, [imageValues]);
     }
@@ -620,15 +620,14 @@ app.post("/create-customers", async (req, res) => {
   try {
     const sql = `
       INSERT INTO customer 
-      (customerRef, customer_firstname, customer_lastname, customer_old, serial_number, username, email, line_id, phone, address)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (customerRef, customer_firstname, customer_lastname, customer_old, username, email, line_id, phone, address)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const values = [
       req.body.customerRef,
       req.body.customer_firstname,
       req.body.customer_lastname,
       req.body.customer_old,
-      req.body.serial_number,
       req.body.username,
       req.body.email,
       req.body.line_id,
@@ -949,7 +948,7 @@ app.get("/get-detail/:jobRef", async (req, res) => {
       `
       SELECT j.jobRef, j.serialNumber, j.createAt, ja.updateAt, ja.jobStatus,
              j.expected_completion_date, j.customer_contact, ja.updateBy, j.serviceRef,
-             ji.imageUrl,ja.remark,
+             ji.imageUrl,ja.remark,ja.unit,
              c.*, p.*
       FROM job AS j
       JOIN customer AS c ON c.customerRef = j.customerRef
@@ -970,10 +969,17 @@ app.get("/get-detail/:jobRef", async (req, res) => {
     // 🖼️ ดึงรูปแบบรวมเป็น JSON array
     const [imgAggRows] = await pool.query(
       `
-      SELECT COALESCE(JSON_ARRAYAGG(ji.imageUrl), JSON_ARRAY()) AS images
-      FROM job_image AS ji
-      WHERE ji.jobRef = ?
-      ORDER BY ji.id;
+      SELECT
+    COALESCE(
+        JSON_ARRAYAGG(
+            JSON_OBJECT(
+                'imageUrl', ji.imageUrl,
+                'status', ji.job_image_status
+            )
+        ),
+        JSON_ARRAY()
+    ) AS images
+FROM job_image AS ji WHERE ji.jobRef = ? ORDER BY ji.id;
     `,
       [jobRef]
     );
@@ -1173,7 +1179,7 @@ app.put("/update-remark/:jobRef", async (req, res) => {
     // 2. บันทึกภาพลงในตาราง job_image
     if (images && images.length > 0) {
       const insertJobImageQuery = `
-            INSERT INTO job_image (jobRef, imageUrl, status)
+            INSERT INTO job_image (jobRef, imageUrl, job_image_status)
             VALUES (?, ?, ?);
         `;
       for (const imageUrl of images) {

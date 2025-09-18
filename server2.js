@@ -43,49 +43,9 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 50 * 1024 * 1024 },
 });
 
-// --- 4. สร้าง Route สำหรับอัปโหลด (Endpoint) ---
-// ใช้ متد .single('imageFile') โดย 'imageFile' คือชื่อของ input field ในฟอร์ม HTML
-// app.post("/upload", upload.single("imageFile"), async (req, res) => {
-//   try {
-//     // ตรวจสอบว่ามีไฟล์ถูกอัปโหลดมาหรือไม่
-//     if (!req.file) {
-//       return res
-//         .status(400)
-//         .json({ message: "กรุณาเลือกไฟล์ที่ต้องการอัปโหลด" });
-//     }
-
-//     // ดึงชื่อไฟล์ที่ถูกบันทึกโดย multer
-//     // const filename = req.file.filename;
-//     // console.log("ไฟล์ที่อัปโหลด:", filename);
-//     const fileUrl = `http://localhost:3302/uploads/${req.file.filename}`;
-
-//     // เชื่อมต่อฐานข้อมูล
-//     const connection = await mysql.createConnection(dbConfig);
-
-//     // เพิ่มชื่อไฟล์ลงในตาราง images
-//     const [result] = await connection.execute(
-//       "INSERT INTO images (image_name) VALUES (?)",
-//       [filename]
-//     );
-
-//     await connection.end(); // ปิดการเชื่อมต่อ
-
-//     console.log("บันทึกข้อมูลลงฐานข้อมูลสำเร็จ ID:", result.insertId);
-
-//     // ส่งข้อมูลกลับไปให้ client
-//     res.status(200).json({
-//       message: "อัปโหลดไฟล์และบันทึกข้อมูลสำเร็จ!",
-//       filename: filename,
-//       path: `/uploads/${filename}`, // URL สำหรับเข้าถึงไฟล์
-//     });
-//   } catch (error) {
-//     console.error("เกิดข้อผิดพลาด:", error);
-//     res.status(500).json({ message: "เกิดข้อผิดพลาดบนเซิร์ฟเวอร์" });
-//   }
-// });
 
 app.post("/upload", upload.single("imageFile"), async (req, res) => {
   try {
@@ -124,7 +84,4 @@ app.post("/upload", upload.single("imageFile"), async (req, res) => {
 // --- 5. เริ่มรันเซิร์ฟเวอร์ ---
 app.listen(port, () => {
   console.log(`เซิร์ฟเวอร์กำลังรันที่ http://localhost:${port}`);
-  // console.log(`host: ${dbConfig.host}`);
-  // console.log(`user: ${dbConfig.user}`);
-  // console.log(`database: ${dbConfig.database}`);
 });

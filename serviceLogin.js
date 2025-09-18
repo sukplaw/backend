@@ -433,8 +433,10 @@ app.get("/profile", authenticateToken, async (req, res) => {
   }
 });
 
+
 app.put("/profile", authenticateToken, async (req, res) => {
-  const { serviceID, firstName, lastName, birthDate, email, phone, lineId, role, username, age } = req.body;
+  // การดึงข้อมูลจาก req.body ถูกต้องแล้ว
+  const { serviceID, firstName, lastName, birthDate, email, phone, lineId, role, username, age, serviceImage } = req.body;
 
   try {
     const [result] = await pool.execute(
@@ -447,9 +449,11 @@ app.put("/profile", authenticateToken, async (req, res) => {
         line_id = ?, 
         role = ?, 
         username = ?, 
-        service_old = ?
+        service_old = ?,
+        service_image = ?
       WHERE serviceRef = ?`,
-      [firstName, lastName, birthDate, email, phone, lineId, role, username, age, serviceID]
+      // V V V แก้ไขลำดับใน Array นี้ให้ถูกต้อง V V V
+      [firstName, lastName, birthDate, email, phone, lineId, role, username, age, serviceImage, serviceID]
     );
 
     res.json({ message: "Profile updated successfully" });
@@ -458,6 +462,33 @@ app.put("/profile", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
+// app.put("/profile", authenticateToken, async (req, res) => {
+//   const { serviceID, firstName, lastName, birthDate, email, phone, lineId, role, username, age, serviceImage } = req.body;
+
+//   try {
+//     const [result] = await pool.execute(
+//       `UPDATE service SET 
+//         service_firstName = ?, 
+//         service_lastName = ?, 
+//         birth_date = ?, 
+//         email = ?, 
+//         phone = ?, 
+//         line_id = ?, 
+//         role = ?, 
+//         username = ?, 
+//         service_old = ?,
+//         service_image = ?
+//       WHERE serviceRef = ?`,
+//       [firstName, lastName, birthDate, email, phone, lineId, role, username, age, serviceID, serviceImage]
+//     );
+
+//     res.json({ message: "Profile updated successfully" });
+//   } catch (err) {
+//     console.error("Update error:", err);
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// });
 
 // app.get("/profile", authenticateToken, async (req, res) => {
 //   console.log("--- Request Reached Profile Endpoint ---");
